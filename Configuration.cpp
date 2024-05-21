@@ -738,6 +738,16 @@ private:
   bool highlight_DXcall_;
   bool highlight_DXgrid_;
 
+  //====================== KD8CEC ianlee
+  bool sendsymtoudp_;
+  QString sendsym_server_;
+  int sendsym_port_;
+  bool sendsym_mute_;
+  bool executeSymUdpServer_;
+  QString sendsym_serverfile_;
+
+  //====================== end of KD8CEC ianlee
+
   QAudioDeviceInfo audio_input_device_;
   QAudioDeviceInfo next_audio_input_device_;
   AudioDevice::Channel audio_input_channel_;
@@ -858,6 +868,18 @@ bool Configuration::include_WAE_entities () const {return m_->include_WAE_entiti
 bool Configuration::highlight_73 () const {return m_->highlight_73_;}
 bool Configuration::highlight_DXcall () const {return m_->highlight_DXcall_;}
 bool Configuration::highlight_DXgrid () const {return m_->highlight_DXgrid_;}
+
+//===================== KD8CEC ianlee
+bool Configuration::sendsymtoudp () const {return m_->sendsymtoudp_;}
+QString Configuration::sendsym_server () const {return m_->sendsym_server_;}
+int Configuration::sendsym_port () const {return m_->sendsym_port_;}
+bool Configuration::sendsym_mute () const {return m_->sendsym_mute_;}
+
+bool Configuration::executeSymUdpServer () const {return m_->executeSymUdpServer_;}
+QString Configuration::sendsym_serverfile () const {return m_->sendsym_serverfile_;}
+
+//===================== END OF KD8CEC
+
 
 void Configuration::set_calibration (CalibrationParams params)
 {
@@ -1511,6 +1533,17 @@ void Configuration::impl::initialize_models ()
   ui_->cbHighlightDXcall->setChecked(highlight_DXcall_);
   ui_->cbHighlightDXgrid->setChecked(highlight_DXgrid_);
 
+//****************************** KD8CEC WORK ianlee *********************
+  ui_->symdataudp_check_box->setChecked (sendsymtoudp_);
+  ui_->symudpserver_line_edit->setText (sendsym_server_);
+  ui_->symudpserver_port_spin_box->setValue (sendsym_port_);
+
+  ui_->executeSymUdpServer_box->setChecked (executeSymUdpServer_);
+  ui_->symudpserverfile_line_edit->setText (sendsym_serverfile_);
+
+//***************************** END OF KD8CEC WORK ianlee ***************
+
+
   set_rig_invariants ();
 }
 
@@ -1717,6 +1750,16 @@ void Configuration::impl::read_settings ()
   pwrBandTuneMemory_ = settings_->value("pwrBandTuneMemory",false).toBool ();
   highlight_DXcall_ = settings_->value("highlight_DXcall",false).toBool ();
   highlight_DXgrid_ = settings_->value("highlight_DXgrid",false).toBool ();
+
+//=========================== KD8CEC ianlee ==================
+  sendsymtoudp_ = settings_->value ("SendSymToUDP", true).toBool ();
+  sendsym_server_ = settings_->value ("SendSymServer", "127.0.0.1").toString ();
+  sendsym_port_ = settings_->value ("SendSymPort", 5957).toUInt ();
+  sendsym_mute_= settings_->value ("SendSymMute", false).toBool ();
+
+  executeSymUdpServer_ = settings_->value ("ExecuteSymUdpServer", false).toBool ();
+  sendsym_serverfile_= settings_->value ("Sendsym_serverfile", "").toString ();
+//=============================================================
 }
 
 void Configuration::impl::find_audio_devices ()
@@ -1853,6 +1896,17 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("AutoGrid", use_dynamic_grid_);
   settings_->setValue ("highlight_DXcall", highlight_DXcall_);
   settings_->setValue ("highlight_DXgrid", highlight_DXgrid_);
+
+//=========================== KD8CEC ianlee ==================
+  settings_->setValue ("SendSymToUDP", sendsymtoudp_);
+  settings_->setValue ("SendSymServer", sendsym_server_);
+  settings_->setValue ("SendSymPort", sendsym_port_);
+  settings_->setValue ("SendSymMute", sendsym_mute_);
+
+  settings_->setValue ("ExecuteSymUdpServer", executeSymUdpServer_);
+  settings_->setValue ("Sendsym_serverfile", sendsym_serverfile_);
+
+//=============================================================
   settings_->sync ();
 }
 
@@ -2345,6 +2399,18 @@ void Configuration::impl::accept ()
   highlight_DXcall_ = ui_->cbHighlightDXcall->isChecked();
   highlight_DXgrid_ = ui_->cbHighlightDXgrid->isChecked();
   Individual_Contest_Name_ = ui_->cbContestName->isChecked();
+
+
+//****************************** KD8CEC WORK ianlee *********************
+  sendsymtoudp_ = ui_->symdataudp_check_box->isChecked ();
+  sendsym_server_ = ui_->symudpserver_line_edit->text ();
+  sendsym_port_ = ui_->symudpserver_port_spin_box->value ();
+
+  executeSymUdpServer_ = ui_->executeSymUdpServer_box->isChecked ();
+  sendsym_serverfile_ = ui_->symudpserverfile_line_edit->text ();
+
+//***************************** END OF KD8CEC WORK ianlee ***************
+
 
   write_settings ();		// make visible to all
 }

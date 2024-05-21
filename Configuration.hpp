@@ -190,6 +190,16 @@ public:
   bool highlight_DXgrid () const;
   bool Individual_Contest_Name() const;
 
+  //====================== KD8CEC ianlee
+  bool sendsymtoudp() const;
+  QString sendsym_server() const;
+  int sendsym_port() const;
+  bool sendsym_mute() const;
+
+  bool executeSymUdpServer() const;
+  QString sendsym_serverfile() const;
+  //====================== end of KD8CEC ianlee
+
 //                                      0       1      2         3       4       5      6     7        8
   enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, WW_DIGI, FOX, HOUND, ARRL_DIGI};
   SpecialOperatingActivity special_op_id () const;

@@ -240,6 +240,72 @@ namespace
   }
 }
 
+//==================================================== KD8CEC ADDED ianlee
+bool sendToneDataToUDP(Configuration const * _mconfig, uint16_t _toneFreq, char _dataType, char _toneLength, uint32_t _rxFreq, uint32_t _txFreq,
+                        char message[])
+{
+  //message : len = 37
+  if (! _mconfig->sendsymtoudp())
+  {
+    return false;
+  }
+  //HEADER : 10BYTE
+  char udpToneBuff[256] = {89, 87, _dataType, 0, _toneLength, (char)((_toneFreq >> 8) & 0xFF), (char)((_toneFreq) & 0xFF), 0, 0, 0};
+
+  if (_dataType == 121) //only Text Send
+  {
+    //Text Information
+    //Offset 10 ~ 250 : 240 byte
+    /*
+    int _textLength = sizeof(message);
+    if (_textLength > 240)
+      _textLength = 240;
+      */
+    for (int i = 0; i < 240; i++)
+      udpToneBuff[i + 10] = message[i];
+
+  }
+  else
+  {
+    for (int i = 0; i < _toneLength; i++)
+      udpToneBuff[i + 10] = (char)(itone[i] & 0xFF);
+
+    //added 2024.01.29
+    uint32_t _tmpTXFreq = _txFreq; //m_rigState.tx_frequency ();
+    uint32_t _tmpRXFreq = _rxFreq; //m_rigState.frequency ();
+
+    if (_dataType < 100 && message != NULL)  //SEND SYM (FT4, 8, JT65 ETC...)
+      for (int i = 0; i < 37; i++)
+        udpToneBuff[205 + i] = message[i];
+
+    udpToneBuff[244] = (char)((_tmpTXFreq >> 0) & 0xFF);
+    udpToneBuff[245] = (char)((_tmpTXFreq >> 8) & 0xFF);
+    udpToneBuff[246] = (char)((_tmpTXFreq >> 16) & 0xFF);
+    udpToneBuff[247] = (char)((_tmpTXFreq >> 24) & 0xFF);
+    udpToneBuff[248] = (char)((_tmpRXFreq >> 0) & 0xFF);
+    udpToneBuff[249] = (char)((_tmpRXFreq >> 8) & 0xFF);
+    udpToneBuff[250] = (char)((_tmpRXFreq >> 16) & 0xFF);
+    udpToneBuff[251] = (char)((_tmpRXFreq >> 24) & 0xFF);
+  }
+
+  udpToneBuff[254] = 74;
+  udpToneBuff[255] = 88;
+
+  QUdpSocket sock;
+  if (-1 == sock.writeDatagram (udpToneBuff, 256
+                                , QHostAddress {_mconfig->sendsym_server()}
+                                , _mconfig->sendsym_port()))
+  {
+    //MessageBox::warning_message (this, tr ("Error sending sym Data"),
+    //                             tr ("Write returned \"%1\"").arg (sock.errorString ()));
+    return false;
+  }
+  return true;
+}
+
+QProcess *udpControlServer;
+//===================================================== END OF KD8CEC
+
 //--------------------------------------------------- MainWindow constructor
 MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        MultiSettings * multi_settings, QSharedMemory *shdmem,
@@ -811,7 +877,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_multi_settings->create_menu_actions (this, ui->menuConfig);
   m_configurations_button = m_rigErrorMessageBox.addButton (tr ("Configurations...")
                                                             , QMessageBox::ActionRole);
-
   // set up message text validators
   ui->tx1->setValidator (new QRegExpValidator {message_alphabet, this});
   ui->tx2->setValidator (new QRegExpValidator {message_alphabet, this});
@@ -1048,6 +1113,16 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
   ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
   ui->pbBestSP->setVisible(m_mode=="FT4");
+
+  //KD8CEC
+  //Execute UDP Command Server
+  if (m_config.executeSymUdpServer())
+  {
+    udpControlServer = new QProcess(this);
+    QString udpControlServerExe = m_config.sendsym_serverfile();
+    udpControlServer->start(udpControlServerExe, QStringList() << "");
+  }
+  //END OF KD8CEC'S WORK
 
 // this must be the last statement of constructor
   if (!m_valid) throw std::runtime_error {"Fatal initialization exception"};
@@ -2416,6 +2491,8 @@ void MainWindow::displayDialFrequency ()
     valid = true;
   }
 
+  //freq send by kd8cec
+  sendToneDataToUDP(&m_config, 0, 123, 0, m_rigState.tx_frequency (), m_rigState.frequency (), NULL);
   update_dynamic_property (ui->labDialFreq, "oob", !valid);
   ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
 }
@@ -2604,6 +2681,14 @@ void MainWindow::subProcessError (QProcess * process, QProcess::ProcessError)
 
 void MainWindow::closeEvent(QCloseEvent * e)
 {
+  //KD8CEC WORK
+  //close signal send by kd8cec
+  sendToneDataToUDP(&m_config, 0, 125, 0, 0, 0, NULL);
+  //udpControlServer->close();
+  //udpControlServer->kill();
+  //udpControlServer->terminate();
+  //END OF KD8CEC WORK
+
   m_valid = false;              // suppresses subprocess errors
   m_config.transceiver_offline ();
   writeSettings ();
@@ -2623,6 +2708,7 @@ void MainWindow::closeEvent(QCloseEvent * e)
   if (!proc_jt9.waitForFinished(1000)) proc_jt9.close();
   mem_jt9->detach();
   Q_EMIT finished ();
+
   QMainWindow::closeEvent (e);
 }
 
@@ -4474,8 +4560,14 @@ void MainWindow::guiUpdate()
                                 &m_currentMessageType, (FCL)22, (FCL)22);
       if(m_mode=="JT9") gen9_(message, &ichk, msgsent, const_cast<int *> (itone),
                                 &m_currentMessageType, (FCL)22, (FCL)22);
-      if(m_mode=="JT65") gen65(message, &ichk, msgsent, const_cast<int *> (itone),
+      if(m_mode=="JT65")
+      {
+        gen65(message, &ichk, msgsent, const_cast<int *> (itone),
                                   &m_currentMessageType);
+
+//ianlee
+        sendToneDataToUDP(&m_config, (uint16_t)(ui->TxFreqSpinBox->value() - m_XIT), 65, 126, 0, 0, message);
+      }
       if(m_mode=="WSPR") genwspr_(message, msgsent, const_cast<int *> (itone),
                                     (FCL)22, (FCL)22);
       if(m_mode=="MSK144" or m_mode=="FT8" or m_mode=="FT4"
@@ -4499,6 +4591,7 @@ void MainWindow::guiUpdate()
             char ft8msgbits[77];
             genft8_(message, &i3, &n3, msgsent, const_cast<char *> (ft8msgbits),
                     const_cast<int *> (itone), (FCL)37, (FCL)37);
+
             int nsym=79;
             int nsps=4*1920;
             float fsample=48000.0;
@@ -4506,6 +4599,9 @@ void MainWindow::guiUpdate()
             float f0=ui->TxFreqSpinBox->value() - m_XIT;
             int icmplx=0;
             int nwave=nsym*nsps;
+//ianlee
+            sendToneDataToUDP(&m_config, (uint16_t)f0, 8, nsym, 0, 0, message);
+
             gen_ft8wave_(const_cast<int *>(itone),&nsym,&nsps,&bt,&fsample,&f0,foxcom_.wave,
                          foxcom_.wave,&icmplx,&nwave);
             if(SpecOp::FOX == m_specOp) {
@@ -4532,6 +4628,10 @@ void MainWindow::guiUpdate()
           float f0=ui->TxFreqSpinBox->value() - m_XIT;
           int nwave=(nsym+2)*nsps;
           int icmplx=0;
+
+//ianlee start
+          sendToneDataToUDP(&m_config, (uint16_t)f0, 4, nsym, 0, 0, message);
+
           gen_ft4wave_(const_cast<int *>(itone),&nsym,&nsps,&fsample,&f0,foxcom_.wave,
                        foxcom_.wave,&icmplx,&nwave);
         }
@@ -4566,6 +4666,10 @@ void MainWindow::guiUpdate()
           if(m_mode=="FST4W") f0=ui->WSPRfreqSpinBox->value() - m_XIT + 1.5*dfreq;
           int nwave=(nsym+2)*nsps;
           int icmplx=0;
+
+//ianlee
+          sendToneDataToUDP(&m_config, (uint16_t)f0, m_mode=="FST4" ? 40 : 41, nsym, 0, 0, message); //sendToneDataToUDP(, nsym);
+
           gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
                         &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
 
@@ -4587,6 +4691,10 @@ void MainWindow::guiUpdate()
           int icmplx=0;
           int hmod=1;
           float f0=ui->TxFreqSpinBox->value()-m_XIT;
+
+//ianlee
+          sendToneDataToUDP(&m_config, (uint16_t)f0, 64, nsym, 0, 0, message);
+
           genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
                    &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
         }
@@ -8489,6 +8597,7 @@ void MainWindow::replayDecodes ()
 
 void MainWindow::postDecode (bool is_new, QString const& message)
 {
+  //ianlee
   auto const& decode = message.trimmed ();
   auto const& parts = decode.left (22).split (' ', SkipEmptyParts);
   if (parts.size () >= 5)
@@ -8502,6 +8611,10 @@ void MainWindow::postDecode (bool is_new, QString const& message)
                                , QChar {'?'} == decode.mid (has_seconds ? 24 + 36 : 22 + 36, 1)
                                , m_diskData);
     }
+
+    //ianlee
+    char * messageChar = message.toLocal8Bit().data();
+  sendToneDataToUDP(&m_config, 0, 121, 0, m_rigState.tx_frequency (), m_rigState.frequency (), messageChar);
 }
 
 void MainWindow::postWSPRDecode (bool is_new, QStringList parts)

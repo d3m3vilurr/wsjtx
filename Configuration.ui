@@ -1630,6 +1630,83 @@ color: rgb(0, 0, 0);</string>
          </layout>
         </widget>
        </item>
+
+
+      <item>
+        <widget class="QGroupBox" name="symudp_group_box">
+         <property name="title">
+          <string>Sending command data to the server via UDP</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_15A">
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="symdataudp_check_box">
+            <property name="text">
+             <string>Enable send command data to UDP</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="symudpserver_line_edit1">
+            <property name="text">
+             <string>Server name or IP address:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="symudpserver_line_edit">
+            <property name="toolTip">
+             <string></string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="symudpserver_port_label">
+            <property name="text">
+             <string>Server port number:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="symudpserver_port_spin_box">
+            <property name="toolTip">
+             <string></string>
+            </property>
+            <property name="maximum">
+             <number>65534</number>
+            </property>
+           </widget>
+          </item>
+
+          <item row="3" column="0" colspan="2">
+           <widget class="QCheckBox" name="executeSymUdpServer_box">
+            <property name="text">
+             <string>Execute Command Bridge Server when starting the program</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="symudpserverfile_line_edit1">
+            <property name="text">
+             <string>Command Bridge Server Execute file:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QLineEdit" name="symudpserverfile_line_edit">
+            <property name="toolTip">
+             <string></string>
+            </property>
+           </widget>
+          </item>
+
+
+         </layout>
+        </widget>
+       </item>
+
+
+
+
        <item>
         <spacer name="verticalSpacer_3">
          <property name="orientation">
